@@ -1,0 +1,1 @@
+Description of problem: subroutine **getCell** in the **Puzzle** class allows for invalid column numbers in some cases, as the algorithm will incorrectly map to a cell that exists in the grid. This should not happen as there could be a time when a pattern matches in **checkForMatchWithPattern** that doesn't really exist or a cell's 'not-allowed' symbol list will be set wrongly.
