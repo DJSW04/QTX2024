@@ -1,1 +1,1 @@
-the user can replace already placed symbols, and patterns, and not lose points (can fix either by stopping them replacing, or make them lose the points from the pattern the replaced)
+ the user can replace already placed symbols, and patterns, and not lose points (can fix either by stopping them replacing, or make them lose the points from the pattern the replaced)
