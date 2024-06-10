@@ -1,0 +1,631 @@
+
+//Skeleton Program code for the AQA A Level Paper 1 Summer 2024 examination
+//this code should be used in conjunction with the Preliminary Material
+//written by the AQA Programmer Team
+//developed in the Visual Studio Community Edition programming environment
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace Puzzle
+{
+    class PuzzleCS
+    {
+        static Random Rng = new Random();
+
+        static void Main(string[] args)
+        {
+            string Again = "y";
+            int Score;
+            while (Again == "y")
+            {
+                Console.Write("Press Enter to start a standard puzzle or enter name of file to load: ");
+                string Filename = Console.ReadLine();
+                Puzzle MyPuzzle;
+                if (Filename.Length > 0)
+                {
+                    try
+                    {
+                        MyPuzzle = new Puzzle(Filename + ".txt");
+                    }
+                    catch
+                    {
+                        Console.WriteLine("Invalid file. Playing default puzzle instead.");
+                        MyPuzzle = new Puzzle(8, Convert.ToInt32(8 * 8 * 0.6));
+                    }
+                }
+                else
+                {
+                    MyPuzzle = new Puzzle(8, Convert.ToInt32(8 * 8 * 0.6));
+                }
+                Score = MyPuzzle.AttemptPuzzle();
+                Console.WriteLine("Puzzle finished. Your score was: " + Score);
+                Console.Write("Do another puzzle? ");
+                Again = Console.ReadLine().ToLower();
+            }
+            Console.ReadLine();
+        }
+
+        class Puzzle
+        {
+            private int Score;
+            private int SymbolsLeft;
+            private int GridSize;
+            private List<Cell> Grid;
+            private List<Pattern> AllowedPatterns;
+            private List<string> AllowedSymbols;
+            private Random randomint = new Random();
+            private int NumWildcards = 3;
+            private bool isFirstValidPattern = false;
+            private int AmntPatternsInGame = 0;
+            private bool leverUsed = false;
+
+            private void TestForError1()
+            {
+                bool Error1Found = false;
+                foreach (Cell C in Grid)
+                {
+                    if (C.ContainsSymbolsNotAllowedList() && C.GetSymbol() != "@")
+                    {
+                        Error1Found = true;
+                    }
+                }
+                if (Error1Found && Score == 0)
+                {
+                    Console.WriteLine("There appear to be cells in the file which demonstrate error 1.");
+                }
+            }
+            private void TestForError2()
+            {
+                int Counter = 0;
+                foreach (Cell C in Grid)
+                {
+                    if (C.ContainsSymbolsNotAllowedList())
+                    {
+                        Counter++;
+                    }
+                }
+                if ((Score / 10) * 9 > Counter)
+                {
+                    Console.WriteLine("The appear to be cells in the file which demonstrate error 2:");
+                }
+            }
+
+
+            public Puzzle(string Filename)
+            {
+                Grid = new List<Cell>();
+                AllowedPatterns = new List<Pattern>();
+                AllowedSymbols = new List<string>();
+                LoadPuzzle(Filename);
+            }
+
+            public Puzzle(int Size, int StartSymbols)
+            {
+                Score = 0;
+                SymbolsLeft = StartSymbols;
+                GridSize = Size;
+                Grid = new List<Cell>();
+                randomint = new Random();
+
+                for (var Count = 1; Count <= GridSize * GridSize; Count++)
+                {
+                    Cell C;
+                    if (Rng.Next(1, 101) < 90)
+                    {
+                        C = new Cell();
+                    }
+                    else
+                    {
+                        C = new BlockedCell();
+                    }
+                    Grid.Add(C);
+                }
+                AllowedPatterns = new List<Pattern>();
+                AllowedSymbols = new List<string>();
+                Pattern QPattern = new Pattern("Q", "QQ**Q**QQ", randomint.Next(1,3));
+                AllowedPatterns.Add(QPattern);
+                AllowedSymbols.Add("Q");
+                Pattern XPattern = new Pattern("X", "X*X*X*X*X", randomint.Next(1, 3));
+                AllowedPatterns.Add(XPattern);
+                AllowedSymbols.Add("X");
+                Pattern TPattern = new Pattern("T", "TTT**T**T", randomint.Next(1, 3));
+                AllowedPatterns.Add(TPattern);
+                AllowedSymbols.Add("T");
+                Pattern CPattern = new Pattern("C", "CCC*CCCC*", randomint.Next(1, 3)); 
+                AllowedPatterns.Add(CPattern); AllowedSymbols.Add("C");
+            }
+
+            private void SavePuzzle(string filename)
+            {
+                filename = filename + ".txt";
+                using (StreamWriter sw = new StreamWriter(filename))
+                {
+                    sw.WriteLine(AllowedSymbols.Count);
+                    foreach (var symbol in AllowedSymbols)
+                    {
+                        sw.WriteLine(symbol);
+                    }
+                    sw.WriteLine(AllowedPatterns.Count);
+                    foreach (var pattern in AllowedPatterns)
+                    {
+                        sw.WriteLine(pattern.GetPatternSymbol() + "," + pattern.GetPatternSequence());
+                    }
+                    sw.WriteLine(GridSize);
+
+                    foreach (Cell C in Grid)
+                    {
+                        List<string> notAllowedSymbol = C.returnNotAllowedSymbols();
+                        try
+                        {
+                            sw.WriteLine(C.GetSymbol() + "," + notAllowedSymbol[0]);
+                        }
+                        catch
+                        {
+                            sw.WriteLine(C.GetSymbol() + ",");
+                        }
+                    }
+                    sw.WriteLine(Score);
+                    sw.WriteLine(SymbolsLeft);
+                }
+            }
+            private void LoadPuzzle(string Filename)
+            {
+                    using (StreamReader MyStream = new StreamReader(Filename))
+                    {
+                        int NoOfSymbols = Convert.ToInt32(MyStream.ReadLine());
+                        for (var Count = 1; Count <= NoOfSymbols; Count++)
+                        {
+                            AllowedSymbols.Add(MyStream.ReadLine());
+                        }
+                        int NoOfPatterns = Convert.ToInt32(MyStream.ReadLine());
+                        for (var Count = 1; Count <= NoOfPatterns; Count++)
+                        {
+                            List<string> Items = MyStream.ReadLine().Split(',').ToList();
+                            Pattern P = new Pattern(Items[0], Items[1]);
+                            AllowedPatterns.Add(P);
+                        }
+                        GridSize = Convert.ToInt32(MyStream.ReadLine());
+                        for (var Count = 1; Count <= GridSize * GridSize; Count++)
+                        {
+                            Cell C;
+                            List<string> Items = MyStream.ReadLine().Split(',').ToList();
+                            if (Items[0] == "@")
+                            {
+                                C = new BlockedCell();
+                            }
+                            else
+                            {
+                                C = new Cell();
+                                C.ChangeSymbolInCell(Items[0]);
+                                for (var CurrentSymbol = 1; CurrentSymbol < Items.Count; CurrentSymbol++)
+                                {
+                                    C.AddToNotAllowedSymbols(Items[CurrentSymbol]);
+                                }
+                            }
+                            Grid.Add(C);
+                        }
+                        Score = Convert.ToInt32(MyStream.ReadLine());
+                        SymbolsLeft = Convert.ToInt32(MyStream.ReadLine());
+                    }
+                    TestForError1(); TestForError2();
+
+            }
+
+
+
+            public virtual int AttemptPuzzle()
+            {
+                bool Finished = false;
+                while (!Finished)
+                {
+                    DisplayPuzzle();
+                    Console.WriteLine("Current score: " + Score);
+                    string uselever = string.Empty;
+                    if (leverUsed == false && isFirstValidPattern == true)
+                    {
+                        Console.WriteLine("You have a lever which you can use, do you wish to use it? y/n");
+                        uselever = Console.ReadLine();
+                    }
+
+
+                    foreach (Pattern Pattern in AllowedPatterns)
+                    {
+                        Pattern.OutputPatternCount();
+                    }
+                    bool Valid = false;
+                    int Row = -1;
+                    while (!Valid)
+                    {
+                        Console.Write("Enter row number: ");
+                        try
+                        {
+                            Row = Convert.ToInt32(Console.ReadLine());
+                            if (Row > 0 && Row <= GridSize)
+                            {
+                                Valid = true;
+                            }
+                        }
+                        catch
+                        {
+                        }
+                    }
+                    int Column = -1;
+                    Valid = false;
+                    while (!Valid)
+                    {
+                        Console.Write("Enter column number: ");
+                        try
+                        {
+                            Column = Convert.ToInt32(Console.ReadLine());
+                            if (Column > 0 && Column <= GridSize)
+                            {
+                                Valid = true;
+                            }
+                        }
+                        catch
+                        {
+                        }
+                    }
+
+                    if (uselever == "y")
+                    {
+                        Cell selectedCell = GetCell(Row,Column);
+                        if (selectedCell.GetSymbol() == "@") { selectedCell.RemoveSymbol(selectedCell.GetSymbol()); }
+                    }
+                    int previousScore = Score; //
+                    string Symbol = GetSymbolFromUser();
+                    SymbolsLeft -= 1;
+                    Cell CurrentCell = GetCell(Row, Column);
+                    if (CurrentCell.CheckSymbolAllowed(Symbol))
+                    {
+                        CurrentCell.ChangeSymbolInCell(Symbol);
+                        int AmountToAddToScore = CheckForMatchWithPattern(Row, Column);
+                        if (AmountToAddToScore > 0)
+                        {
+                            Score += AmountToAddToScore;
+                        }
+                    }
+
+                    DisplayPuzzle();
+                    Console.WriteLine("Current score: " + Score);
+
+                    Console.Write("Do you want to undo (cost 3 points)? y/n: ");
+                    string answer = Console.ReadLine();
+
+                    if (answer == "y" || answer == "Y")
+                    {
+                        // undo
+                        Cell currentCell = GetCell(Row, Column);
+                        currentCell.RemoveSymbol(Symbol);
+                        Score = previousScore - 3;
+                        SymbolsLeft += 1;
+                    } 
+
+                    if (SymbolsLeft == 0)
+                    {
+                        Finished = true;
+                    }
+                    Console.WriteLine("Do you wish to save your puzzle and exit? (Y for yes)");
+                    if (Console.ReadLine().ToUpper() == "Y")
+                    {
+                        Console.WriteLine("What would you like to save your puzzle as?");
+                        string file = Console.ReadLine();
+                        SavePuzzle(file);
+                        Console.WriteLine("Puzzle Successfully Saved.");
+                        break;
+                    }
+                }
+                Console.WriteLine();
+                DisplayPuzzle();
+                Console.WriteLine();
+                return Score;
+            }
+
+            private Cell GetCell(int Row, int Column)
+            {
+                return Grid[(GridSize - Row) * GridSize + Column - 1];
+            }
+
+            public virtual int CheckForMatchWithPattern(int Row, int Column)
+            {
+                for (var StartRow = Row + 2; StartRow >= Row; StartRow--)
+                {
+                    for (var StartColumn = Column - 2; StartColumn <= Column; StartColumn++)
+                    {
+                        try
+                        {
+                            if (StartColumn + 2 > GridSize) { break; }
+
+                            //string PatternString = "";
+                            List<Cell> PatternList = new List<Cell>();
+                            PatternList.Add(GetCell(StartRow, StartColumn));
+                            PatternList.Add(GetCell(StartRow, StartColumn + 1));
+                            PatternList.Add(GetCell(StartRow, StartColumn + 2));
+                            PatternList.Add(GetCell(StartRow - 1, StartColumn + 2));
+                            PatternList.Add(GetCell(StartRow - 2, StartColumn + 2));
+                            PatternList.Add(GetCell(StartRow - 2, StartColumn + 1));
+                            PatternList.Add(GetCell(StartRow - 2, StartColumn));
+                            PatternList.Add(GetCell(StartRow - 1, StartColumn));
+                            PatternList.Add(GetCell(StartRow - 1, StartColumn + 1));
+                            string PatternString = "";
+
+                            foreach (var Cell in PatternList)
+                            {
+                                PatternString += Cell.ToString();
+                            }
+                            foreach (var P in AllowedPatterns)
+                            {
+                                string CurrentSymbol = GetCell(Row, Column).GetSymbol();
+                                foreach (var Cell in PatternList)
+                                {
+                                    if (Cell.GetSymbol() != "@" && !Cell.CheckSymbolAllowed(CurrentSymbol))
+                                    {
+                                        Console.WriteLine("Cannot overlap patterns of the same symbol");
+                                        return 0;
+                                    }
+                                }
+                                if (P.MatchesPattern(PatternString, CurrentSymbol))
+                                {
+                                    GetCell(StartRow, StartColumn).AddToNotAllowedSymbols(CurrentSymbol);
+                                    GetCell(StartRow, StartColumn + 1).AddToNotAllowedSymbols(CurrentSymbol);
+                                    GetCell(StartRow, StartColumn + 2).AddToNotAllowedSymbols(CurrentSymbol);
+                                    GetCell(StartRow - 1, StartColumn + 2).AddToNotAllowedSymbols(CurrentSymbol);
+                                    GetCell(StartRow - 2, StartColumn + 2).AddToNotAllowedSymbols(CurrentSymbol);
+                                    GetCell(StartRow - 2, StartColumn + 1).AddToNotAllowedSymbols(CurrentSymbol);
+                                    GetCell(StartRow - 2, StartColumn).AddToNotAllowedSymbols(CurrentSymbol);
+                                    GetCell(StartRow - 1, StartColumn).AddToNotAllowedSymbols(CurrentSymbol);
+                                    GetCell(StartRow - 1, StartColumn + 1).AddToNotAllowedSymbols(CurrentSymbol);
+                                    isFirstValidPattern = true;
+                                    AmntPatternsInGame++;
+                                    if (isFirstValidPattern && AmntPatternsInGame == 1) 
+                                    {
+                                        Console.WriteLine("You have been awarded a Lever (one time use and award)");
+                                        leverUsed = false; // (basically has been awarded
+
+                                    } //issue lever, 
+                                    if (leverUsed == false) { } // remove blocked cell replace with blank, lever used == true 
+
+                                    return 10;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                        }
+                    }
+                }
+                return 0;
+            }
+
+            private string GetSymbolFromUser()
+            {
+                string Symbol = "";
+                while (!AllowedSymbols.Contains(Symbol) && Symbol != "*" && NumWildcards > 0)
+                {
+                    Console.Write("Enter symbol: ");
+                    Symbol = Console.ReadLine();
+                }
+                if (Symbol == "*")
+                {
+                    NumWildcards--;
+                }
+                return Symbol;
+            }
+
+            private string CreateHorizontalLine()
+            {
+                string Line = "  ";
+                for (var Count = 1; Count <= GridSize * 2 + 1; Count++)
+                {
+                    Line += "-";
+                }
+                return Line;
+            }
+
+            public virtual void DisplayPuzzle()
+            {
+                Console.WriteLine();
+                if (GridSize < 10)
+                {
+                    Console.Write("  ");
+                    for (var Count = 1; Count <= GridSize; Count++)
+                    {
+                        Console.Write(" " + Count);
+                    }
+                }
+                Console.WriteLine();
+                Console.WriteLine(CreateHorizontalLine());
+                for (var Count = 0; Count < Grid.Count(); Count++)
+                {
+                    if (Count % GridSize == 0 && GridSize < 10)
+                    {
+                        Console.Write((GridSize - ((Count + 1) / GridSize)) + " ");
+                    }
+                    Console.Write("|" + Grid[Count].GetSymbol());
+                    if ((Count + 1) % GridSize == 0)
+                    {
+                        Console.WriteLine("|");
+                        Console.WriteLine(CreateHorizontalLine());
+                    }
+                }
+            }
+        }
+
+        class Pattern
+        {
+            private string Symbol;
+            private string PatternSequence;
+            private int PatternCount;
+            
+            public string GetPatternSymbol() {  return Symbol; }
+            public void OutputPatternCount()
+            {
+                if (PatternCount == -1)
+                {
+                    return;
+                }
+                if (PatternCount == 0)
+                {
+                    Console.WriteLine(Symbol + " has no remaining patterns available.");
+                    Console.WriteLine("You can place the " + Symbol + " into the Grid, but it will not be matched against a pattern.");
+                }
+                else
+                {
+                    Console.WriteLine("The " + Symbol + " Pattern can be used " + PatternCount + " more times.");
+                }
+            }
+
+            public Pattern(string SymbolToUse, string PatternString)
+            {
+                Symbol = SymbolToUse;
+                PatternSequence = PatternString;
+                PatternCount = -1;
+            }
+
+            public Pattern(string SymbolToUse, string PatternString, int randomint)
+            {
+                Symbol = SymbolToUse;
+                PatternSequence = PatternString;
+                PatternCount = randomint;
+            }
+
+            public virtual bool MatchesPattern(string PatternString, string SymbolPlaced)
+            {
+                if (PatternCount == 0) 
+                {
+                    return false;
+                }
+                if (PatternCount > 0)
+                {
+                    PatternCount--;
+                }
+                if (SymbolPlaced != Symbol && SymbolPlaced != "*")
+                {
+                    return false;
+                }
+                for (var Count = 0; Count < PatternSequence.Length; Count++)
+                {
+                    if (PatternString[Count] == '*')
+                    {
+                        continue;
+                    }
+                    if (PatternSequence[Count].ToString() == Symbol && PatternString[Count].ToString() != Symbol)
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            public virtual string GetPatternSequence()
+            {
+                return PatternSequence;
+            }
+        }
+
+        class Cell
+        {
+            protected string Symbol;
+            private List<string> SymbolsNotAllowed;
+
+            public virtual void RemoveSymbol(string SymbolToRemove)
+            {
+                Symbol = "";
+                SymbolsNotAllowed.Remove(SymbolToRemove);
+            }
+
+            public virtual List<string> returnNotAllowedSymbols()
+            {
+                return SymbolsNotAllowed;
+            }
+            public Cell()
+            {
+                Symbol = "";
+                SymbolsNotAllowed = new List<string>();
+            }
+
+            public virtual string GetSymbol()
+            {
+                if (IsEmpty())
+                {
+                    return "-";
+                }
+                else
+                {
+                    return Symbol;
+                }
+            }
+
+            public bool IsEmpty()
+            {
+                if (Symbol.Length == 0)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            public void ChangeSymbolInCell(string NewSymbol)
+            {
+                Symbol = NewSymbol;
+            }
+
+            public virtual bool CheckSymbolAllowed(string SymbolToCheck)
+            {
+                foreach (var Item in SymbolsNotAllowed)
+                {
+                    if (Item == SymbolToCheck)
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            public virtual void AddToNotAllowedSymbols(string SymbolToAdd)
+            {
+                SymbolsNotAllowed.Add(SymbolToAdd);
+            }
+
+            public virtual void UpdateCell()
+            {
+            }
+
+            public bool ContainsSymbolsNotAllowedList()
+            {
+                if (Symbol == "@")
+                {
+                    return true;
+                }
+                if (SymbolsNotAllowed.Count > 0 && !SymbolsNotAllowed.Contains(""))
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+
+        class BlockedCell : Cell
+        {
+            public BlockedCell() : base()
+            {
+                Symbol = "@";
+            }
+
+            public override bool CheckSymbolAllowed(string SymbolToCheck)
+            {
+                return false;
+            }
+        }
+    }
+}
